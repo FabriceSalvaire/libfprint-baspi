@@ -340,6 +340,9 @@ static void register_driver(struct fp_driver *drv)
 }
 
 static struct fp_driver * const primitive_drivers[] = {
+#ifdef ENABLE_BSAPI
+  &bsapi_driver,
+#endif
 #ifdef ENABLE_UPEKTS
 	&upekts_driver,
 #endif

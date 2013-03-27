@@ -23,7 +23,7 @@ AC_SUBST(lt_major)
 AC_SUBST(lt_revision)
 AC_SUBST(lt_age)
 
-all_drivers="upeke2 upekts upektc upeksonly vcom5s uru4000 fdu2000 aes1610 aes1660 aes2501 aes2550 aes2660 aes4000 vfs101 vfs301"
+all_drivers="upeke2 upekts upektc upeksonly vcom5s uru4000 fdu2000 aes1610 aes1660 aes2501 aes2550 aes2660 aes4000 vfs101 vfs301 bsapi"
 
 require_imaging='no'
 require_aeslib='no'
@@ -43,6 +43,7 @@ enable_aes2660='no'
 enable_aes4000='no'
 enable_vfs101='no'
 enable_vfs301='no'
+enable_bsapi='no'
 
 AC_ARG_WITH([drivers],[AS_HELP_STRING([--with-drivers],
 	[List of drivers to enable])],
@@ -125,6 +126,11 @@ for driver in `echo ${drivers} | sed -e 's/,/ /g' -e 's/,$//g'`; do
 			AC_DEFINE([ENABLE_VFS301], [], [Build Validity VFS301/VFS300 driver])
 			enable_vfs301="yes"
 		;;
+		bsapi)
+			AC_DEFINE([ENABLE_BSAPI], [], [Build Validity BSAPI driver])
+			enable_bsapi="yes"
+		;;
+
 	esac
 done
 
@@ -145,7 +151,7 @@ AM_CONDITIONAL([REQUIRE_AESLIB], [test "$require_aeslib" = "yes"])
 AM_CONDITIONAL([REQUIRE_AESX660], [test "$require_aesX660" = "yes"])
 AM_CONDITIONAL([ENABLE_VFS101], [test "$enable_vfs101" = "yes"])
 AM_CONDITIONAL([ENABLE_VFS301], [test "$enable_vfs301" = "yes"])
-
+AM_CONDITIONAL([ENABLE_BSAPI], [test "$enable_bsapi" = "yes"])
 
 PKG_CHECK_MODULES(LIBUSB, [libusb-1.0 >= 0.9.1])
 AC_SUBST(LIBUSB_CFLAGS)

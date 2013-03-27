@@ -28,12 +28,14 @@
 #include <errno.h>
 #include <pthread.h>
 
-#include <bstypes.h>
-#include <bserror.h>
+#include <bsapi/bstypes.h>
+#include <bsapi/bserror.h>
 
 #include <glib.h>
 
 #include <fp_internal.h>
+
+#include "driver_ids.h"
 
 #define POLL_MSECS (200)
 
@@ -149,7 +151,6 @@ static struct dev_info parse_dsn (const char *dsn)
         strncpy (buf, pid_pos + 5, 4);
         retval.product_id = (uint16_t)strtol (buf, 0, 16);
     }
-
     /* for BSAPI version 4.0 */
     else if ((dev_pos = strstr (dsn, "device=#"))) {
         char buf[5] = {0};
@@ -161,9 +162,21 @@ static struct dev_info parse_dsn (const char *dsn)
         strncpy (buf, dev_pos + 15, 4);
         retval.product_id = (uint16_t)strtol (buf, 0, 16);
     }
-
+    /* for BSAPI version 4.x */
+    else if ((dev_pos = strstr (dsn, "device=")))
+      {
+	char buf[5] = { 0 };
+	
+	/* format: mid00,usb,device=147e_2020_0001_001_:00:02; XXXX:YYYY is the usb-id */
+	strncpy (buf, dev_pos + 7, 4);
+	retval.vendor_id = (uint16_t) strtol (buf, 0, 16);
+	
+	strncpy (buf, dev_pos + 12, 4);
+	retval.product_id = (uint16_t) strtol (buf, 0, 16);
+	// printf ("device %u %u\n", retval.vendor_id, retval.product_id);
+      }
     else
-        BUG_ON(1);              /* New DSN string format */
+      BUG_ON(1);              /* New DSN string format */
 
     return retval;
 }
@@ -539,11 +552,12 @@ static int verify_stop (struct fp_dev *dev, gboolean iterating)
 /* TODO: Complete listing of usb devices here */
 static const struct usb_id id_table[] = {
     { .vendor = 0x147e, .product = 0x1002 },
+    {.vendor = 0x147e, .product = 0x2020},
     { 0, 0, 0, },
 };
 
 struct fp_driver bsapi_driver = {
-	.id = 11,
+	.id = BSAPI_ID,
 	.name = "bsapi",
 	.full_name = "UPEK libbsapi bridge",
 	.id_table = id_table,
@@ -556,4 +570,3 @@ struct fp_driver bsapi_driver = {
 	.verify_start = verify_start,
 	.verify_stop = verify_stop,
 };
-
