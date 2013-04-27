@@ -21,6 +21,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+/**************************************************************************************************/
+
 #include <dlfcn.h>
 #include <string.h>
 #include <stdlib.h>
@@ -37,40 +39,56 @@
 
 #include "driver_ids.h"
 
+/**************************************************************************************************/
+
 #define POLL_MSECS (200)
+
+/**************************************************************************************************/
 
 /* Functions from the libbsapi.so library */
 int bsapi_refcnt = 0;
-void *bsapi_handle;
+void *bsapi_handle = NULL;
 
 static ABS_STATUS (*ABSInitialize) (void) = NULL;
 static ABS_STATUS (*ABSTerminate) (void) = NULL;
-static ABS_STATUS (*ABSOpen) (const ABS_CHAR * dsn, ABS_CONNECTION * connection) = NULL;
+static ABS_STATUS (*ABSOpen) (const ABS_CHAR * dsn,
+			      ABS_CONNECTION * connection) = NULL;
 static ABS_STATUS (*ABSClose) (ABS_CONNECTION connection) = NULL;
-static ABS_STATUS (*ABSEnumerateDevices) (const char *dsn, ABS_DEVICE_LIST ** device_list) = NULL;
+static ABS_STATUS (*ABSEnumerateDevices) (const char * dsn,
+					  ABS_DEVICE_LIST ** device_list) = NULL;
 static ABS_STATUS (*ABSGetDeviceProperty) (ABS_CONNECTION connection,
-					   ABS_DWORD property_id, ABS_DATA ** property_data);
+					   ABS_DWORD property_id,
+					   ABS_DATA ** property_data) = NULL;
 static void (*ABSFree) (void *memblock) = NULL;
-
 static ABS_STATUS (*ABSEnroll) (ABS_CONNECTION connection,
 				ABS_OPERATION * operation,
-				ABS_BIR ** template, ABS_DWORD flags) = NULL;
+				ABS_BIR ** template,
+				ABS_DWORD flags) = NULL;
 static ABS_STATUS (*ABSVerify) (ABS_CONNECTION connection,
 				ABS_OPERATION * operation,
 				ABS_DWORD template_count,
-				ABS_BIR ** templates, ABS_LONG * result, ABS_DWORD flags) = NULL;
-static ABS_STATUS (*ABSCancelOperation) (ABS_CONNECTION connection, ABS_DWORD operation_id) = NULL;
+				ABS_BIR ** templates,
+				ABS_LONG * result,
+				ABS_DWORD flags) = NULL;
+static ABS_STATUS (*ABSCancelOperation) (ABS_CONNECTION connection,
+					 ABS_DWORD operation_id) = NULL;
 
-#define LOAD_SYMBOL(symbol)                     \
-    do {                                        \
-        symbol = dlsym (bsapi_handle, #symbol); \
-        if (!symbol)                            \
-            return 1;                           \
-    } while (0);
+/**************************************************************************************************/
+
+#define LOAD_SYMBOL(symbol)                 \
+  do {                                      \
+    symbol = dlsym (bsapi_handle, #symbol); \
+    if (!symbol)                            \
+      return 1;                             \
+  } while (0);
+
+/**************************************************************************************************/
 
 static int
 bsapi_ref (void)
 {
+  fp_dbg ("bsapi:Load libbsapi.so");
+
   BUG_ON (!bsapi_handle && bsapi_refcnt);
 
   bsapi_refcnt++;
@@ -102,9 +120,13 @@ bsapi_ref (void)
   return 0;
 }
 
+/**************************************************************************************************/
+
 static void
 bsapi_unref (void)
 {
+  fp_dbg ("bsapi:Unload libbsapi.so");
+
   BUG_ON (!bsapi_refcnt || !bsapi_handle);
 
   if (--bsapi_refcnt == 0)
@@ -125,65 +147,70 @@ bsapi_unref (void)
     }
 }
 
+/**************************************************************************************************/
+
 struct dev_info
 {
   uint16_t vendor_id;
   uint16_t product_id;
 };
 
+/**************************************************************************************************/
+
+uint16_t
+dsn_substring (const char *string)
+{
+  char buffer[5] = { 0 };
+  strncpy (buffer, string, 4);
+  return (uint16_t) strtol (buffer, 0, 16);
+}
+
+/**************************************************************************************************/
+
 /* Parse the internal DSN string from BSAPI and return usb-ids */
 static struct dev_info
 parse_dsn (const char *dsn)
 {
-  struct dev_info retval = { 0 };
+  fp_dbg ("bsapi:Parse DSN %s", dsn);
 
+  struct dev_info retval = { 0 };
   const char *vid_pos, *pid_pos, *dev_pos;
 
   /* for BSAPI version 3.6 */
   if ((vid_pos = strstr (dsn, "VID_")) && (pid_pos = strstr (dsn, "_PID_")))
     {
-      char buf[5] = { 0 };
-
-      strncpy (buf, vid_pos + 4, 4);
-      retval.vendor_id = (uint16_t) strtol (buf, 0, 16);
-
-      strncpy (buf, pid_pos + 5, 4);
-      retval.product_id = (uint16_t) strtol (buf, 0, 16);
+      retval.vendor_id = dsn_substring (vid_pos + 4);
+      retval.product_id = dsn_substring (pid_pos + 5);
     }
-  /* for BSAPI version 4.0 */
+  /* for BSAPI version 4.0
+   * format: device=#NNXXXX_YYYY_*; XXXX:YYYY is the usb-id
+   */
   else if ((dev_pos = strstr (dsn, "device=#")))
     {
-      char buf[5] = { 0 };
-
-      /* format: device=#NNXXXX_YYYY_*; XXXX:YYYY is the usb-id */
-      strncpy (buf, dev_pos + 10, 4);
-      retval.vendor_id = (uint16_t) strtol (buf, 0, 16);
-
-      strncpy (buf, dev_pos + 15, 4);
-      retval.product_id = (uint16_t) strtol (buf, 0, 16);
+      retval.vendor_id = dsn_substring (dev_pos + 10);
+      retval.product_id = dsn_substring (dev_pos + 15);
     }
-  /* for BSAPI version 4.x */
+  /* for BSAPI version 4.x
+   * format: mid00,usb,device=147e_2020_0001_001_:00:02; XXXX:YYYY is the usb-id
+   */
   else if ((dev_pos = strstr (dsn, "device=")))
     {
-      char buf[5] = { 0 };
-
-      /* format: mid00,usb,device=147e_2020_0001_001_:00:02; XXXX:YYYY is the usb-id */
-      strncpy (buf, dev_pos + 7, 4);
-      retval.vendor_id = (uint16_t) strtol (buf, 0, 16);
-
-      strncpy (buf, dev_pos + 12, 4);
-      retval.product_id = (uint16_t) strtol (buf, 0, 16);
-      // printf ("device %u %u\n", retval.vendor_id, retval.product_id);
+      retval.vendor_id = dsn_substring (dev_pos + 7);
+      retval.product_id = dsn_substring (dev_pos + 12);
     }
   else
-    BUG_ON (1);			/* New DSN string format */
+    BUG_ON (1); /* New DSN string format */
 
   return retval;
 }
 
+/**************************************************************************************************/
+
 static char *
 find_dsn (uint16_t vendor_id, uint16_t product_id)
 {
+  fp_dbg ("bsapi:Find DSN Vendor ID %u Product ID %u", vendor_id, product_id);
+
   ABS_DEVICE_LIST *devices = NULL;
 
   if (ABSEnumerateDevices ("usb", &devices) != ABS_STATUS_OK || !devices)
@@ -209,9 +236,13 @@ find_dsn (uint16_t vendor_id, uint16_t product_id)
   return retval;
 }
 
+/**************************************************************************************************/
+
 static int
-discover (struct libusb_device_descriptor *dsc, uint32_t * devtype)
+discover (struct libusb_device_descriptor *dsc, uint32_t *devtype)
 {
+  fp_dbg ("bsapi:Discover");
+
   if (bsapi_ref ())
     return -1;
 
@@ -229,6 +260,8 @@ discover (struct libusb_device_descriptor *dsc, uint32_t * devtype)
   return 0;
 }
 
+/**************************************************************************************************/
+
 enum bsapi_mode
 {
   BSAPI_MODE_NONE = 0,
@@ -243,7 +276,7 @@ struct bsapi_dev
 
   pthread_t async_thread;
 
-  pthread_mutex_t mutex;	/* everything below protected by this */
+  pthread_mutex_t mutex; /* everything below protected by this */
 
   enum bsapi_mode mode;
   struct fpi_ssm *state;
@@ -254,14 +287,21 @@ struct bsapi_dev
   ABS_BIR *print_data;
 };
 
+
+/**************************************************************************************************/
+
 static void
 bsapi_msg (const ABS_OPERATION * operation, ABS_DWORD message, void *data)
 {
 }
 
+/**************************************************************************************************/
+
 static int
 dev_init (struct fp_dev *dev, unsigned long driver_data)
 {
+  fp_dbg ("bsapi:dev_init");
+
   if (bsapi_ref ())
     return -1;
 
@@ -274,43 +314,46 @@ dev_init (struct fp_dev *dev, unsigned long driver_data)
   struct libusb_device_descriptor desc;
   libusb_get_device_descriptor (libusb_get_device (dev->udev), &desc);
   char *dsn = find_dsn (desc.idVendor, desc.idProduct);
-
   if (!dsn)
     {
       fp_err ("Attempted to open device %x:%x with no DSN", desc.idVendor, desc.idProduct);
       return -1;
     }
 
-  ABS_CONNECTION c;
-  ABS_STATUS s = ABSOpen (dsn, &c);
+  ABS_CONNECTION connection;
+  ABS_STATUS status = ABSOpen (dsn, &connection);
 
-  if (s != ABS_STATUS_OK)
+  if (status != ABS_STATUS_OK)
     {
-      fp_err ("ABSOpen failed, error %d", s);
+      fp_err ("ABSOpen failed, error %d", status);
       return -1;
     }
 
   bsapidev = g_new0 (struct bsapi_dev, 1);
-  bsapidev->connection = c;
+  bsapidev->connection = connection;
 
   bsapidev->operation.OperationID = 1;
   bsapidev->operation.Context = bsapidev;
   bsapidev->operation.Callback = bsapi_msg;
-  bsapidev->operation.Timeout = -1;	/* default timeout */
+  bsapidev->operation.Timeout = -1; /* default timeout */
 
   pthread_mutex_init (&bsapidev->mutex, NULL);
 
   dev->priv = bsapidev;
-  dev->nr_enroll_stages = 1;	/* HACK: ABSEnroll() does all stages at once */
+  dev->nr_enroll_stages = 1; /* HACK: ABSEnroll() does all stages at once */
 
   fpi_drvcb_open_complete (dev, 0);
 
   return 0;
 }
 
+/**************************************************************************************************/
+
 static void
 dev_exit (struct fp_dev *dev)
 {
+  fp_dbg ("bsapi:dev_exit");
+
   struct bsapi_dev *bsapidev = dev->priv;
 
   ABSClose (bsapidev->connection);
@@ -322,20 +365,27 @@ dev_exit (struct fp_dev *dev)
   fpi_drvcb_close_complete (dev);
 }
 
+/**************************************************************************************************/
+
 /* Internal functions for handling SSM with enroll/verify */
 static void *
 thread_fn (void *data)
 {
-  struct fpi_ssm *ssm = data;
+  fp_dbg ("bsapi:thread_fn");
 
+  struct fpi_ssm *ssm = data;
   fpi_ssm_next_state (ssm);
 
   return NULL;
 }
 
+/**************************************************************************************************/
+
 static void
 timer_fn (void *data)
 {
+  fp_dbg ("bsapi:timer_fn");
+
   struct fpi_ssm *ssm = data;
   struct bsapi_dev *bsapidev = ssm->dev->priv;
 
@@ -345,14 +395,17 @@ timer_fn (void *data)
 
   if (ready)
     fpi_ssm_next_state (ssm);
-
   else
     fpi_timeout_add (POLL_MSECS, &timer_fn, ssm);
 }
 
+/**************************************************************************************************/
+
 static void
 cleanup_ssm (struct fpi_ssm *ssm)
 {
+  fp_dbg ("bsapi:cleanup_ssm");
+
   struct fp_dev *dev = ssm->dev;
   struct bsapi_dev *bsapidev = dev->priv;
 
@@ -365,9 +418,13 @@ cleanup_ssm (struct fpi_ssm *ssm)
   bsapidev->mode = BSAPI_MODE_NONE;
 }
 
+/**************************************************************************************************/
+
 static void
 start_ssm (struct fpi_ssm *ssm)
 {
+  fp_dbg ("bsapi:start_ssm");
+
   struct bsapi_dev *bsapidev = ssm->dev->priv;
 
   bsapidev->state = ssm;
@@ -378,6 +435,8 @@ start_ssm (struct fpi_ssm *ssm)
   fpi_ssm_start (ssm, &cleanup_ssm);
 }
 
+/**************************************************************************************************/
+
 enum enroll_states
 {
   BEGIN_ENROLL = 0,
@@ -386,16 +445,20 @@ enum enroll_states
   NR_ENROLL_STATES
 };
 
+/**************************************************************************************************/
+
 static void
 enroll_ssm_fn (struct fpi_ssm *ssm)
 {
+  fp_dbg ("bsapi:enroll_ssm_fn");
+
   struct bsapi_dev *bsapidev = ssm->dev->priv;
 
   BUG_ON (ssm != bsapidev->state);
 
   switch (ssm->cur_state)
     {
-    case BEGIN_ENROLL:		/* called when starting */
+    case BEGIN_ENROLL: /* called when starting */
       pthread_create (&bsapidev->async_thread, NULL, &thread_fn, ssm);
       fpi_timeout_add (POLL_MSECS, &timer_fn, ssm);
 
@@ -404,14 +467,13 @@ enroll_ssm_fn (struct fpi_ssm *ssm)
       break;
 
     case CALL_ENROLL:
-      {				/* called on async_thread */
+      { /* called on async_thread */
 	ABS_BIR *template = NULL;
-	ABS_STATUS s = ABSEnroll (bsapidev->connection, &bsapidev->operation,
-				  &template, 0);
+	ABS_STATUS s = ABSEnroll (bsapidev->connection, &bsapidev->operation, &template, 0);
 
 	pthread_mutex_lock (&bsapidev->mutex);
 
-	bsapidev->ready = TRUE;	/* signals to timer to poke ssm */
+	bsapidev->ready = TRUE; /* signals to timer to poke ssm */
 	bsapidev->result = s;
 	bsapidev->print_data = template;
 
@@ -420,7 +482,7 @@ enroll_ssm_fn (struct fpi_ssm *ssm)
 	break;
       }
 
-    case REAP_ENROLL:		/* called from timer_fn */
+    case REAP_ENROLL: /* called from timer_fn */
       pthread_join (bsapidev->async_thread, NULL);
       /* thread finished, no need to lock */
 
@@ -429,14 +491,11 @@ enroll_ssm_fn (struct fpi_ssm *ssm)
 
       else if (bsapidev->result == ABS_STATUS_OK)
 	{
-	  struct fp_print_data *print_data = fpi_print_data_new (ssm->dev,
-								 bsapidev->print_data->Header.
-								 Length);
+	  struct fp_print_data *print_data = fpi_print_data_new (ssm->dev, bsapidev->print_data->Header.Length);
 
 	  memcpy (print_data->data, bsapidev->print_data, bsapidev->print_data->Header.Length);
 
 	  fpi_drvcb_enroll_stage_completed (ssm->dev, FP_ENROLL_COMPLETE, print_data, NULL);
-
 	}
       else
 	fpi_drvcb_enroll_stage_completed (ssm->dev, -1, NULL, NULL);
@@ -450,9 +509,13 @@ enroll_ssm_fn (struct fpi_ssm *ssm)
     }
 }
 
+/**************************************************************************************************/
+
 static int
 enroll_start (struct fp_dev *dev)
 {
+  fp_dbg ("bsapi:enroll_start");
+
   struct bsapi_dev *bsapidev = dev->priv;
 
   if (bsapidev->mode != BSAPI_MODE_NONE)
@@ -465,9 +528,13 @@ enroll_start (struct fp_dev *dev)
   return 0;
 }
 
+/**************************************************************************************************/
+
 static int
 enroll_stop (struct fp_dev *dev)
 {
+  fp_dbg ("bsapi:enroll_stop");
+
   struct bsapi_dev *bsapidev = dev->priv;
 
   if (bsapidev->mode != BSAPI_MODE_ENROLL)
@@ -481,6 +548,8 @@ enroll_stop (struct fp_dev *dev)
   return 0;
 }
 
+/**************************************************************************************************/
+
 enum verify_states
 {
   BEGIN_VERIFY = 0,
@@ -488,9 +557,13 @@ enum verify_states
   REAP_VERIFY
 };
 
+/**************************************************************************************************/
+
 static void
 verify_ssm_fn (struct fpi_ssm *ssm)
 {
+  fp_dbg ("bsapi:verify_ssm_fn");
+
   struct bsapi_dev *bsapidev = ssm->dev->priv;
 
   switch (ssm->cur_state)
@@ -504,7 +577,7 @@ verify_ssm_fn (struct fpi_ssm *ssm)
       break;
 
     case CALL_VERIFY:
-      {				/* on async_thread */
+      { /* on async_thread */
 	ABS_BIR *bir = (ABS_BIR *) ssm->dev->verify_data->data;
 	BUG_ON (bir->Header.Length != ssm->dev->verify_data->length);
 
@@ -530,8 +603,7 @@ verify_ssm_fn (struct fpi_ssm *ssm)
 
       else
 	fpi_drvcb_report_verify_result (ssm->dev,
-					bsapidev->verify_result != -1 ?
-					FP_VERIFY_MATCH : FP_VERIFY_NO_MATCH, NULL);
+					bsapidev->verify_result != -1 ? FP_VERIFY_MATCH : FP_VERIFY_NO_MATCH, NULL);
 
       if (ssm->dev->state == DEV_STATE_VERIFY_STOPPING)
 	fpi_drvcb_verify_stopped (ssm->dev);
@@ -541,9 +613,13 @@ verify_ssm_fn (struct fpi_ssm *ssm)
     }
 }
 
+/**************************************************************************************************/
+
 static int
 verify_start (struct fp_dev *dev)
 {
+  fp_dbg ("bsapi:verify_start");
+
   struct bsapi_dev *bsapidev = dev->priv;
   if (bsapidev->mode != BSAPI_MODE_NONE)
     return -EBUSY;
@@ -555,9 +631,13 @@ verify_start (struct fp_dev *dev)
   return 0;
 }
 
+/**************************************************************************************************/
+
 static int
 verify_stop (struct fp_dev *dev, gboolean iterating)
 {
+  fp_dbg ("bsapi:verify_stop");
+
   struct bsapi_dev *bsapidev = dev->priv;
   if (bsapidev->mode != BSAPI_MODE_VERIFY)
     {
@@ -570,11 +650,12 @@ verify_stop (struct fp_dev *dev, gboolean iterating)
   return 0;
 }
 
+/**************************************************************************************************/
 
 /* TODO: Complete listing of usb devices here */
 static const struct usb_id id_table[] = {
-  {.vendor = 0x147e,.product = 0x1002},
-  {.vendor = 0x147e,.product = 0x2020},
+  {.vendor = 0x147e, .product = 0x1002},
+  {.vendor = 0x147e, .product = 0x2020},
   {0, 0, 0,},
 };
 
@@ -583,7 +664,11 @@ struct fp_driver bsapi_driver = {
   .name = "bsapi",
   .full_name = "UPEK libbsapi bridge",
   .id_table = id_table,
+  .type = DRIVER_PRIMITIVE,
   .scan_type = FP_SCAN_TYPE_SWIPE,
+
+  .priv = NULL,
+
   .discover = discover,
   .open = dev_init,
   .close = dev_exit,
@@ -592,3 +677,9 @@ struct fp_driver bsapi_driver = {
   .verify_start = verify_start,
   .verify_stop = verify_stop,
 };
+
+/***************************************************************************************************
+ * 
+ * End
+ * 
+ **************************************************************************************************/

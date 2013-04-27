@@ -16,8 +16,6 @@
 extern "C" {
 #endif
 
-
-
 /** 
  * @name Application General Functions
  * The Application General Functions allow to initialize the BSAPI library,
@@ -31,10 +29,7 @@ extern "C" {
  * 
  * @return Status code.
  */
-ABS_STATUS BSAPI ABSInitialize(
-      void
-);
-
+ABS_STATUS BSAPI ABSInitialize(void);
 
 /** 
  * Initialize the BSAPI.DLL library. BSAPI.DLL must be initialized before you can 
@@ -49,7 +44,6 @@ ABS_STATUS BSAPI ABSInitializeEx(
     IN ABS_DWORD dwFlags
 );
 
-
 /** 
  * Uninitialize the BSAPI.DLL library. Must not be called while any connections
  * to FM are still open. It is not obligatory to call this function, if the
@@ -58,10 +52,7 @@ ABS_STATUS BSAPI ABSInitializeEx(
  * 
  * @return Status code.
  */
-ABS_STATUS BSAPI ABSTerminate(
-      void
-);
-
+ABS_STATUS BSAPI ABSTerminate(void);
 
 /** 
  * Open a new session with a FM.
@@ -77,7 +68,6 @@ ABS_STATUS BSAPI ABSOpen(
     OUT ABS_CONNECTION* phConnection
 );
 
-
 /** 
  * Close a connection previously opened by ABSOpen.
  * 
@@ -87,7 +77,6 @@ ABS_STATUS BSAPI ABSOpen(
 ABS_STATUS BSAPI ABSClose(
     IN ABS_CONNECTION hConnection
 );
-
 
 /** 
  * Enumerate currently connected fingerprint devices.
@@ -103,7 +92,6 @@ ABS_STATUS BSAPI ABSEnumerateDevices(
     IN const ABS_CHAR* pszEnumDsn,
     OUT ABS_DEVICE_LIST** ppDeviceList
 );
-
 
 /** 
  * Return data describing some property of device associated with the current 
@@ -123,7 +111,6 @@ ABS_STATUS BSAPI ABSGetDeviceProperty(
     OUT ABS_DATA** ppPropertyData
 );
 
-
 /** 
  * Use this function to releasing memory allocated by other BSAPI.DLL functions.
  * 
@@ -133,9 +120,6 @@ ABS_STATUS BSAPI ABSGetDeviceProperty(
 void BSAPI ABSFree(
     IN void* Memblock
 );
-
-
-
 
 /** 
  * @name Biometric Functions
@@ -160,7 +144,6 @@ ABS_STATUS BSAPI ABSEnroll(
     OUT ABS_BIR** ppEnrolledTemplate,
     IN ABS_DWORD dwFlags
 );
-
 
 /** 
  * This function captures sample from the FM, processes it into template and 
@@ -187,7 +170,6 @@ ABS_STATUS BSAPI ABSVerify(
     IN ABS_DWORD dwFlags
 );
 
-
 /** 
  * Compares whether two given templates match or not.
  * 
@@ -206,7 +188,6 @@ ABS_STATUS BSAPI ABSVerifyMatch(
     OUT ABS_BOOL* pResult,
     IN ABS_DWORD dwFlags
 );
-
 
 /** 
  * This function captures sample for the purpose specified and creates 
@@ -229,7 +210,6 @@ ABS_STATUS BSAPI ABSCapture(
     IN ABS_DWORD dwFlags
 );
 
-
 /** 
  * Perform antilatent check.
  * 
@@ -246,7 +226,6 @@ ABS_STATUS BSAPI ABSCheckLatent(
     IN ABS_DWORD dwFlags
 );
 
-
 /** 
  * Switch FM to navigation mode (a.k.a. biometric mouse).
  * 
@@ -260,7 +239,6 @@ ABS_STATUS BSAPI ABSNavigate(
     IN ABS_OPERATION* pOperation,
     IN ABS_DWORD dwFlags
 );
-
 
 /** 
  * Detects finger presence or absence on the sensor.
@@ -277,9 +255,6 @@ ABS_STATUS BSAPI ABSDetectFinger(
     IN ABS_DWORD dwDetectPurpose,
     IN ABS_DWORD dwFlags
 );
-
-
-
 
 /** 
  * @name Image Grabbing Functions
@@ -302,7 +277,6 @@ ABS_STATUS BSAPI ABSGrab(
     OUT ABS_IMAGE** ppImage,
     IN ABS_DWORD dwFlags
 );
-
 
 /** 
  * Grabs image sample from the FM. This function is similar to ABSGrab, but 
@@ -329,7 +303,6 @@ ABS_STATUS BSAPI ABSRawGrab(
     IN ABS_DWORD dwFlags
 );
 
-
 /** 
  * Retrieves list of image formats supported by the FM.
  * 
@@ -346,7 +319,6 @@ ABS_STATUS BSAPI ABSListImageFormats(
     OUT ABS_IMAGE_FORMAT** ppImageFormatList,
     IN ABS_DWORD dwFlags
 );
-
 
 /** 
  * Grabs image sample from the FM.
@@ -372,7 +344,6 @@ ABS_STATUS BSAPI ABSGrabImage(
     IN void* pReserved,
     IN ABS_DWORD dwFlags
 );
-
 
 /** 
  * Grabs image sample from the FM. This function is similar to ABSGrabImage, 
@@ -403,9 +374,6 @@ ABS_STATUS BSAPI ABSRawGrabImage(
     IN ABS_DWORD dwFlags
 );
 
-
-
-
 /** 
  * @name Miscellaneous Functions
  */
@@ -424,7 +392,6 @@ ABS_STATUS BSAPI ABSCancelOperation(
     IN ABS_DWORD dwOperationID
 );
 
-
 /** 
  * Stores arbitrary data on the FM.
  * 
@@ -436,7 +403,6 @@ ABS_STATUS BSAPI ABSSetAppData(
     IN ABS_CONNECTION hConnection,
     IN ABS_DATA* pAppData
 );
-
 
 /** 
  * Retrieves the data stored on the FM.
@@ -450,7 +416,6 @@ ABS_STATUS BSAPI ABSGetAppData(
     IN ABS_CONNECTION hConnection,
     OUT ABS_DATA** ppAppData
 );
-
 
 /** 
  * Sets value of session-wide parameter. 
@@ -467,7 +432,6 @@ ABS_STATUS BSAPI ABSSetSessionParameter(
     IN ABS_DATA* pParamValue
 );
 
-
 /** 
  * Retrieves value of session-wide parameter.
  * 
@@ -483,7 +447,6 @@ ABS_STATUS BSAPI ABSGetSessionParameter(
     OUT ABS_DATA** ppParamValue
 );
 
-
 /** 
  * Sets value of global-wide parameter.
  * 
@@ -497,7 +460,6 @@ ABS_STATUS BSAPI ABSSetGlobalParameter(
     IN ABS_DATA* pParamValue
 );
 
-
 /** 
  * Retrieves value of global-wide parameter.
  * 
@@ -510,7 +472,6 @@ ABS_STATUS BSAPI ABSGetGlobalParameter(
     IN ABS_DWORD dwParamID,
     OUT ABS_DATA** ppParamValue
 );
-
 
 /** 
  * This function allows the application to control the state and behavior 
@@ -530,7 +491,6 @@ ABS_STATUS BSAPI ABSSetLED(
     IN ABS_DWORD dwLED2
 );
 
-
 /** 
  * This function allows the application to query the state and behavior 
  * of the two user interface LEDs, which can be optionally connected to 
@@ -549,7 +509,6 @@ ABS_STATUS BSAPI ABSGetLED(
     OUT ABS_DWORD* pdwLED2
 );
 
-
 /** 
  * 
  * 
@@ -564,7 +523,6 @@ ABS_STATUS BSAPI ABSSetLedEx(
     IN ABS_DWORD dwMode,
     IN ABS_DATA* pLedParams
 );
-
 
 /** 
  * 
@@ -581,7 +539,6 @@ ABS_STATUS BSAPI ABSGetLedEx(
     OUT ABS_DATA** ppLedParams
 );
 
-
 /** 
  * The function converts gray-scale image (as obtain from callback, ABSGrab 
  * or ABSRawGrab) to binarized form, with only two colors. 
@@ -595,7 +552,6 @@ ABS_STATUS BSAPI ABSBinarizeSampleImage(
     INOUT ABS_IMAGE* pGrayScaleImage,
     OUT ABS_IMAGE** ppBinarizedImage
 );
-
 
 /** 
  * Retrieves additional information about last BSAPI error, which occurred 
@@ -611,7 +567,6 @@ void BSAPI ABSGetLastErrorInfo(
     OUT const ABS_CHAR** ppErrorMessage
 );
 
-
 /** 
  * Requests special function to be processed.
  * 
@@ -626,7 +581,6 @@ ABS_STATUS BSAPI ABSEscape(
     IN ABS_DATA* pInData,
     OUT ABS_DATA** ppOutData
 );
-
 
 /** 
  * Requests special function to be processed.
@@ -645,13 +599,8 @@ ABS_STATUS BSAPI ABSSessionEscape(
     OUT ABS_DATA** ppOutData
 );
 
-
-
-
-
 #ifdef __cplusplus
 }       /* extern "C" */
 #endif
 
 #endif  /* bsapi_h */
-
