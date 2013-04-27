@@ -1,7 +1,7 @@
 libfprint v0.5.0 with Authentec BSAPI Support
 =============================================
 
-This libfprint branch provides support Authentec device like
+This libfprint branch provides support for Authentec device like
   Bus 001 Device 003: ID 147e:2020 Upek TouchChip Fingerprint Coprocessor (WBF advanced mode)
 using the Authentec BSAPI SDK.
 
