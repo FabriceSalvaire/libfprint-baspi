@@ -30,5 +30,6 @@ libfprint/60-fprint-autosuspend.rules
 libfprint/fprint-list-udev-rules
 libtool
 ltmain.sh
+m4
 missing
 stamp-h1
