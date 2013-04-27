@@ -1,22 +1,23 @@
 libfprint v0.5.0 with Authentec BSAPI Support
 =============================================
 
-This branch provides support for Authentec device like
+This libfprint branch provides support Authentec device like
   Bus 001 Device 003: ID 147e:2020 Upek TouchChip Fingerprint Coprocessor (WBF advanced mode)
-using Authentec BSAPI SDK.
+using the Authentec BSAPI SDK.
 
-It works well on Fedora 18 with a Thinkpad T430.
+It works well on Fedora 18 and a Thinkpad T430.
 
 The upeke2 driver should support this device, but it doesn't work for
-me. Next step would be to use the BSAPI driver and wireshark to
-understand what is wrong with upeke2.
+me. Next step would be to use this driver and wireshark to understand
+what is wrong for upeke2.
 
 This driver doesn't fit well with libfprint design and don't support image grabbing.
 
 The freedesktop.org libfprint source code was cloned from http://cgit.freedesktop.org/libfprint/libfprint/
 (I don't know why my master branch interfere with https://github.com/anarsoul/libfprint)
 
-The BSAPI driver comes from https://gitorious.org/libfprint/fprint-bsapi-bridge
+The BSAPI driver comes from https://gitorious.org/libfprint/fprint-bsapi-bridge, that 
+should be equivalent to https://github.com/hyperair/fprint-bsapi.
 
 run ./autogen.sh to generate configure script
 see run-configure.sh and run-install.sh to build and install
